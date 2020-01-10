@@ -19,13 +19,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 优惠券服务
@@ -79,7 +76,7 @@ public class WxCouponController {
      */
     @GetMapping("mylist")
     public Object mylist(@LoginUser Integer userId,
-                       @NotNull Short status,
+                       Short status,
                        @RequestParam(defaultValue = "1") Integer page,
                        @RequestParam(defaultValue = "10") Integer limit,
                        @Sort @RequestParam(defaultValue = "add_time") String sort,
@@ -99,12 +96,13 @@ public class WxCouponController {
             Integer couponId = couponUser.getCouponId();
             LitemallCoupon coupon = couponService.findById(couponId);
             CouponVo couponVo = new CouponVo();
-            couponVo.setId(coupon.getId());
+            couponVo.setId(couponUser.getId());
+            couponVo.setCid(coupon.getId());
             couponVo.setName(coupon.getName());
             couponVo.setDesc(coupon.getDesc());
             couponVo.setTag(coupon.getTag());
-            couponVo.setMin(coupon.getMin().toPlainString());
-            couponVo.setDiscount(coupon.getDiscount().toPlainString());
+            couponVo.setMin(coupon.getMin());
+            couponVo.setDiscount(coupon.getDiscount());
             couponVo.setStartTime(couponUser.getStartTime());
             couponVo.setEndTime(couponUser.getEndTime());
 
@@ -131,7 +129,7 @@ public class WxCouponController {
 
         // 团购优惠
         BigDecimal grouponPrice = new BigDecimal(0.00);
-        LitemallGrouponRules grouponRules = grouponRulesService.queryById(grouponRulesId);
+        LitemallGrouponRules grouponRules = grouponRulesService.findById(grouponRulesId);
         if (grouponRules != null) {
             grouponPrice = grouponRules.getDiscount();
         }
@@ -160,16 +158,11 @@ public class WxCouponController {
 
         // 计算优惠券可用情况
         List<LitemallCouponUser> couponUserList = couponUserService.queryAll(userId);
-        List<LitemallCouponUser> availableCouponUserList = new ArrayList<>(couponUserList.size());
-        for (LitemallCouponUser couponUser : couponUserList) {
-            LitemallCoupon coupon = couponVerifyService.checkCoupon(userId, couponUser.getCouponId(), checkedGoodsPrice);
-            if (coupon == null) {
-                continue;
-            }
-            availableCouponUserList.add(couponUser);
+        List<CouponVo> couponVoList = change(couponUserList);
+        for (CouponVo cv : couponVoList) {
+            LitemallCoupon coupon = couponVerifyService.checkCoupon(userId, cv.getCid(), cv.getId(), checkedGoodsPrice);
+            cv.setAvailable(coupon != null);
         }
-
-        List<CouponVo> couponVoList = change(availableCouponUserList);
 
         return ResponseUtil.okList(couponVoList);
     }
